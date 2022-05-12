@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/Multiobjective_Optimization.iml" filepath="$PROJECT_DIR$/.idea/Multiobjective_Optimization.iml" />
+      <module fileurl="file://$PROJECT_DIR$/../ottimizzazione Ackley/.idea/ottimizzazione Ackley.iml" filepath="$PROJECT_DIR$/../ottimizzazione Ackley/.idea/ottimizzazione Ackley.iml" />
+    </modules>
+  </component>
+</project>
