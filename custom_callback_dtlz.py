@@ -5,14 +5,14 @@ from pymoo.core.callback import Callback
 
 
 def calcola_hypervolume_dtlz(res_f):
-    ref_point = np.array([5.5, 5.5, 5.5, 5.5, 5.5, 5.5, 5.5])
+    ref_point = np.full(7, 1.5)
 
     # create the performance indicator object with reference point
     metric = Hypervolume(ref_point=ref_point,
                          norm_ref_point = True,
                          zero_to_one = True,
-                         ideal = np.array([0, 0, 0, 0, 0, 0, 0]),
-                         nadir = np.array([5.5, 5.5, 5.5, 5.5, 5.5, 5.5, 5.5])
+                         ideal = np.full(7,0),
+                         nadir = np.full(7, 1.5)
                          )
 
     # calculate for each generation the HV metric

@@ -1,12 +1,9 @@
 import json
-import numpy as np
 from pymoo.algorithms.moo.moead import MOEAD
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.algorithms.moo.nsga3 import NSGA3
 from pymoo.factory import get_problem, get_termination, get_reference_directions
-from pymoo.operators.sampling.rnd import FloatRandomSampling
 from pymoo.optimize import minimize
-from pymoo.interface import sample
 from custom_selection_dtlz import WSTSelection
 
 from custom_callback_dtlz import MyCallback_dtlz
@@ -33,7 +30,7 @@ for SEED in range(1, N_TRIAL + 1):
     c_moea_d = MyCallback_dtlz()
     res_moea_d = minimize(problem_dtlz2, algorithm_moea_d, termination,
                             save_history=True,
-                            verbose=True,
+                            #verbose=True,
                             callback=c_moea_d,
                             seed=SEED)
     hvs_moead.append(c_moea_d.data["HV"])
@@ -48,7 +45,7 @@ for SEED in range(1, N_TRIAL + 1):
     c_moea_wst = MyCallback_dtlz()
     res_moea_wst = minimize(problem_dtlz2, algorithm_moea_wst, termination,
                         save_history=True,
-                        verbose=True,
+                        #verbose=True,
                         callback=c_moea_wst,
                         seed=SEED)
 

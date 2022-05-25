@@ -1,6 +1,6 @@
-import os
-os.system('conda install botorch -c pytorch -c gpytorch')
-#os.system('pip install -U pymoo')
+# import os
+# os.system('conda install botorch -c pytorch -c gpytorch')
+# os.system('pip install -U pymoo')
 
 
 import numpy as np
@@ -33,12 +33,12 @@ with open('rating_matrix.pickle', 'rb') as f:
 
 no_of_films = 15
 problem_botorch = MultiObjectiveProblem(rating_matrix=rating_matrix,
-                              L = no_of_films,
-                              f1=coverage, f2=novelty, f3=accuracy).to(**tkwargs)
+                                        L=no_of_films,
+                                        f1=coverage, f2=novelty, f3=accuracy).to(**tkwargs)
 
-problem_nsga = OptimizationProblem(rating_matrix = rating_matrix,
-                              L = no_of_films,
-                              f1=coverage_pymoo, f2=novelty_pymoo, f3=accuracy_pymoo)
+problem_nsga = OptimizationProblem(rating_matrix=rating_matrix,
+                                   L=no_of_films,
+                                   f1=coverage_pymoo, f2=novelty_pymoo, f3=accuracy_pymoo)
 
 from botorch.models.gp_regression import SingleTaskGP
 from gpytorch.mlls.exact_marginal_log_likelihood import ExactMarginalLogLikelihood
@@ -57,19 +57,20 @@ standard_bounds[1] = 1
 
 def generate_initial_data(n, trial):
     # generate training data
+    """
     torch.manual_seed(trial + 1)
     sampling = get_sampling('int_random') #funziona ma solo con un trial
     train_x_nsga3 = sample(sampling, n, 943 * no_of_films, xl=1, xu= 1681)
     train_x_parego = torch.tensor(train_x_nsga, **tkwargs)
 
     """
-    torch.manual_seed(trial+1) # di solito funziona con trial+5
+    torch.manual_seed(trial) # di solito funziona con trial+5
     train_x_parego = torch.floor(torch.rand(n, 943 * no_of_films, **tkwargs) * 1682)
-    train_x_nsga3 = np.asarray(train_x_parego, dtype=int)
-    """
+    train_x_ga = np.asarray(train_x_parego, dtype=int)
+
     train_obj = problem_botorch(train_x_parego)
 
-    return train_x_parego, train_x_nsga3, train_obj
+    return train_x_parego, train_x_ga, train_obj
 
 
 def initialize_model(train_x, train_obj):
@@ -96,7 +97,7 @@ def optimize_qparego_and_get_observation(model, train_obj, sampler):
         """
         acq_func = qUpperConfidenceBound(
             model=model,
-            beta = 1,
+            beta=1,
             objective=objective,
             sampler=sampler,
         )
@@ -122,20 +123,20 @@ from botorch import fit_gpytorch_model
 from botorch.acquisition.monte_carlo import qUpperConfidenceBound
 from botorch.sampling.samplers import SobolQMCNormalSampler
 from botorch.utils.multi_objective.pareto import is_non_dominated
-#from botorch.utils.multi_objective.hypervolume import Hypervolume
+# from botorch.utils.multi_objective.hypervolume import Hypervolume
 
 N_TRIALS = 5
 
 parego_data = []
 
-hvs_qparego_all, hvs_moea_all, hvs_nsga3_all, time_qparego_all, time_moea_all, time_nsga3_all = [], [], [], [], [], []
+hvs_qparego_all, hvs_nsga_all, time_qparego_all, time_nsga_all = [], [], [], []
 
 #hv_botorch = botorch.utils.multi_objective.hypervolume.Hypervolume(ref_point=problem_botorch.ref_point)
 
 for trial in range(1, N_TRIALS + 1):
     hvs_qparego, iteration_time_qparego, iteration_time_nsga = [], [], []
 
-    train_x_qparego, train_x_nsga, train_obj_qparego = generate_initial_data(n=10, trial=trial)
+    train_x_qparego, train_x_nsga, train_obj_qparego = generate_initial_data(n=10, trial=trial-4)
     mll_qparego, model_qparego = initialize_model(train_x_qparego, train_obj_qparego)
     # compute pareto front
     pareto_mask = is_non_dominated(train_obj_qparego)
@@ -149,10 +150,9 @@ for trial in range(1, N_TRIALS + 1):
     iteration_dict = {'train_obj': train_obj_qparego.tolist(), 'pareto front': (-pareto_y).tolist()}
     parego_data.append(iteration_dict)
 
-    # nsga-III
-    ref_dirs = get_reference_directions("das-dennis", 3, n_partitions=2)
-    algorithm_nsga3 = NSGA3(
-        ref_dirs=ref_dirs,
+    # nsga-II
+    #ref_dirs = get_reference_directions("das-dennis", 3, n_partitions=2)
+    algorithm_nsga3 = NSGA2(
         pop_size=10,
         n_offsprings=BATCH_SIZE,
         sampling= train_x_nsga, #get_sampling("int_random"),
@@ -160,12 +160,12 @@ for trial in range(1, N_TRIALS + 1):
         mutation=get_mutation("perm_inv"),
         eliminate_duplicates=True
     )
-    c_nsga3 = MyCallback()
-    res_nsga3 = minimize(problem_nsga, algorithm_nsga3, termination,
+    c_nsga2 = MyCallback()
+    res_nsga2 = minimize(problem_nsga, algorithm_nsga3, termination,
                    save_history=True,
-                   callback=c_nsga3,
+                   callback=c_nsga2,
                    verbose=False)
-
+    """
     # moea
     algorithm_moea = NSGA2(
         pop_size=10,
@@ -181,7 +181,7 @@ for trial in range(1, N_TRIALS + 1):
                    save_history=True,
                    callback=c_moea,
                    verbose=False)
-
+    """
     for iteration in range(1, N_BATCH):
         print(f"CICLO {iteration} in trial {trial}")
         #qParego
@@ -215,18 +215,18 @@ for trial in range(1, N_TRIALS + 1):
         iteration_time_qparego.append(t1_qParego - t0_qParego)
 
     hvs_qparego_all.append(hvs_qparego)
-    hvs_nsga3_all.append(c_nsga3.data["HV"])
-    hvs_moea_all.append(c_moea.data["HV"])
+    hvs_nsga_all.append(c_nsga2.data["HV"])
+    # hvs_moea_all.append(c_moea.data["HV"])
     time_qparego_all.append(iteration_time_qparego)
 
-    time_error = c_nsga3.data["time"][0]
+    time_error = c_nsga2.data["time"][0]
     for i in range(0, N_BATCH):
-        c_nsga3.data["time"][i] = c_nsga3.data["time"][i] - time_error
-    time_nsga3_all.append(c_nsga3.data["time"])
+        c_nsga2.data["time"][i] = c_nsga2.data["time"][i] - time_error
+    time_nsga_all.append(c_nsga2.data["time"])
 
 
-hypervolume = {"parego": hvs_qparego_all, "nsga3": hvs_nsga3_all, "moea" : hvs_moea_all}
-time = {"parego time": time_qparego_all, "nsga time": time_nsga3_all, "moea time": time_moea_all}
+hypervolume = {"parego": hvs_qparego_all, "nsga2": hvs_nsga_all}
+time = {"parego time": time_qparego_all, "nsga time": time_nsga_all}
 out_file_hvs = open("Risultati\\hypervolume.json", "w")
 out_file_time = open("Risultati\\time.json", "w")
 out_file_parego = open("Risultati\\parego_data.json", "w")
@@ -234,4 +234,4 @@ out_file_nsga = open("Risultati\\nsga_data.json", "w")
 json.dump(hypervolume, out_file_hvs)
 json.dump(time, out_file_time)
 json.dump(parego_data, out_file_parego)
-json.dump(c_nsga3.data["nsga data"], out_file_nsga)
+json.dump(c_nsga2.data["nsga data"], out_file_nsga)

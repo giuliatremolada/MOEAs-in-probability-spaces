@@ -7,6 +7,7 @@ def accuracy_pymoo(top_recc, rating_matrix):
     total_score = 0
     for idx_user, user_list in enumerate(top_recc):
         total_score += sum(rating_matrix.iloc[idx_user, cols[user_list]].values)
+
     max_accuracy = 5 * top_recc.shape[0] * top_recc.shape[1]
     return -(total_score/max_accuracy)
 
