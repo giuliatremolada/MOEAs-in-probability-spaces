@@ -22,7 +22,7 @@ for i in mean_time_nsga:
     count += i
     time_nsga.append(count)
 
-iters = np.arange(100) * 10
+iters = np.arange(75) * 10
 
 time = [time_qparego, time_nsga]
 
@@ -30,18 +30,20 @@ hvs_mean_nsga2 = np.asarray(hypervolume['nsga2']).mean(axis=0)
 hvs_mean_nsga3 = np.asarray(hypervolume['nsga3']).mean(axis=0)
 hvs_mean_moea_wst = np.asarray(hypervolume['moea/wst']).mean(axis=0)
 hvs_mean_moead = np.asarray(hypervolume['moea/d']).mean(axis=0)
-#hvs_mean_moead_wst = np.asarray(hypervolume['moead/wst']).mean(axis=0)
+hvs_mean_moead_wst = np.asarray(hypervolume['moead/wst']).mean(axis=0)
+#hvs_mean_parego = np.asarray(hypervolume['parego']).mean(axis=0)
 hvs_std_nsga2 = np.asarray(hypervolume['nsga2']).std(axis=0)
 hvs_std_nsga3 = np.asarray(hypervolume['nsga3']).std(axis=0)
 hvs_std_moea_wst = np.asarray(hypervolume['moea/wst']).std(axis=0)
 hvs_std_moead = np.asarray(hypervolume['moea/d']).std(axis=0)
-#hvs_std_moead_wst = np.asarray(hypervolume['moead/wst']).std(axis=0)
+hvs_std_moead_wst = np.asarray(hypervolume['moead/wst']).std(axis=0)
+#hvs_std_parego = np.asarray(hypervolume['parego']).std(axis=0)
 
-means = [hvs_mean_moea_wst, hvs_mean_moead, hvs_mean_nsga2, hvs_mean_nsga3] # List of lists (medie su tutti i trial)
-stds = [hvs_std_moea_wst, hvs_std_moead, hvs_std_nsga2, hvs_std_nsga3] # List of lists (deviazione standard su tutti i trial)
+means = [hvs_mean_moea_wst, hvs_mean_moead, hvs_mean_moead_wst, hvs_mean_nsga2, hvs_mean_nsga3] # List of lists (medie su tutti i trial)
+stds = [hvs_std_moea_wst, hvs_std_moead, hvs_std_moead_wst, hvs_std_nsga2, hvs_std_nsga3] # List of lists (deviazione standard su tutti i trial)
 
-colors = ["green", "grey", "orange", "blue"] # List of n colors (string)
-line_labels = ["Moea/wst", "Moea/d", "Nsga-II", "Nsga-III"] # List of n labels (string)
+colors = ["green", "grey", "red", "yellow", "blue"] # List of n colors (string)
+line_labels = ["Moea/Wst", "Moea/d", "Moea/d/Wst", "Nsga-II", "Nsga-III"] # List of n labels (string)
 
 plt.rc('font', size=12)  # controls default text sizes
 plt.rc('axes', titlesize=14)  # fontsize of the axes title

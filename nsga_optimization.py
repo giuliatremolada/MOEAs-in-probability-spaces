@@ -18,7 +18,7 @@ from custom_callback import MyCallback
 from custom_selection import CustomSelection
 
 N_GEN = 250
-N_TRIAL = 1
+N_TRIAL = 5
 
 ### Read data
 

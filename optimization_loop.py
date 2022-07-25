@@ -6,6 +6,7 @@
 import numpy as np
 import torch
 from botorch.models.transforms import Standardize
+from pymoo.algorithms.moo.moead import MOEAD
 from pymoo.algorithms.moo.nsga2 import NSGA2
 from pymoo.interface import sample
 
@@ -23,6 +24,7 @@ from pymoo.factory import get_sampling, get_crossover, get_mutation
 from objective_functions import accuracy, novelty, coverage, accuracy_pymoo, novelty_pymoo, coverage_pymoo
 from pymoo.factory import get_termination
 from pymoo.optimize import minimize
+from moead_wst import MOEADWST
 
 tkwargs = {
     "dtype": torch.double
@@ -62,7 +64,6 @@ def generate_initial_data(n, trial):
     sampling = get_sampling('int_random') #funziona ma solo con un trial
     train_x_nsga3 = sample(sampling, n, 943 * no_of_films, xl=1, xu= 1681)
     train_x_parego = torch.tensor(train_x_nsga, **tkwargs)
-
     """
     torch.manual_seed(trial) # di solito funziona con trial+5
     train_x_parego = torch.floor(torch.rand(n, 943 * no_of_films, **tkwargs) * 1682)
@@ -86,7 +87,7 @@ def optimize_qparego_and_get_observation(model, train_obj, sampler):
     acq_func_list = []
     for _ in range(BATCH_SIZE):
         weights = sample_simplex(problem_botorch.num_objectives, **tkwargs).squeeze()
-        objective = GenericMCObjective(get_chebyshev_scalarization(weights=weights, Y= train_obj))
+        objective = GenericMCObjective(get_chebyshev_scalarization(weights=weights, Y=train_obj))
         """
         acq_func = qExpectedImprovement(
             model=model,
@@ -97,7 +98,7 @@ def optimize_qparego_and_get_observation(model, train_obj, sampler):
         """
         acq_func = qUpperConfidenceBound(
             model=model,
-            beta=1,
+            beta=100,
             objective=objective,
             sampler=sampler,
         )
@@ -129,14 +130,15 @@ N_TRIALS = 5
 
 parego_data = []
 
-hvs_qparego_all, hvs_nsga_all, time_qparego_all, time_nsga_all = [], [], [], []
+hvs_qparego_all, hvs_nsga2_all, hvs_nsga3_all, \
+hvs_moea_wst_all = [], [], [], []
 
 #hv_botorch = botorch.utils.multi_objective.hypervolume.Hypervolume(ref_point=problem_botorch.ref_point)
 
 for trial in range(1, N_TRIALS + 1):
     hvs_qparego, iteration_time_qparego, iteration_time_nsga = [], [], []
 
-    train_x_qparego, train_x_nsga, train_obj_qparego = generate_initial_data(n=10, trial=trial-4)
+    train_x_qparego, train_x_nsga, train_obj_qparego = generate_initial_data(n=10, trial=trial+2)
     mll_qparego, model_qparego = initialize_model(train_x_qparego, train_obj_qparego)
     # compute pareto front
     pareto_mask = is_non_dominated(train_obj_qparego)
@@ -151,8 +153,7 @@ for trial in range(1, N_TRIALS + 1):
     parego_data.append(iteration_dict)
 
     # nsga-II
-    #ref_dirs = get_reference_directions("das-dennis", 3, n_partitions=2)
-    algorithm_nsga3 = NSGA2(
+    algorithm_nsga2 = NSGA2(
         pop_size=10,
         n_offsprings=BATCH_SIZE,
         sampling= train_x_nsga, #get_sampling("int_random"),
@@ -161,13 +162,30 @@ for trial in range(1, N_TRIALS + 1):
         eliminate_duplicates=True
     )
     c_nsga2 = MyCallback()
-    res_nsga2 = minimize(problem_nsga, algorithm_nsga3, termination,
+    res_nsga2 = minimize(problem_nsga, algorithm_nsga2, termination,
                    save_history=True,
                    callback=c_nsga2,
                    verbose=False)
-    """
-    # moea
-    algorithm_moea = NSGA2(
+
+    #nsga-III
+    ref_dirs = get_reference_directions("das-dennis", 3, n_partitions=2)
+    algorithm_nsga3 = NSGA3(
+        ref_dirs=ref_dirs,
+        pop_size=10,
+        n_offsprings=BATCH_SIZE,
+        sampling=train_x_nsga,  # get_sampling("int_random"),
+        crossover=get_crossover("int_sbx", prob=1, eta=3.0),
+        mutation=get_mutation("perm_inv"),
+        eliminate_duplicates=True
+    )
+    c_nsga3 = MyCallback()
+    res_nsga3 = minimize(problem_nsga, algorithm_nsga3, termination,
+                         save_history=True,
+                         callback=c_nsga3,
+                         verbose=False)
+
+    # moea/wst
+    algorithm_moea_wst = NSGA2(
         pop_size=10,
         n_offsprings=BATCH_SIZE,
         sampling= train_x_nsga, #get_sampling("int_random"),
@@ -176,11 +194,48 @@ for trial in range(1, N_TRIALS + 1):
         selection=CustomSelection(),
         eliminate_duplicates=True
     )
-    c_moea = MyCallback()
-    res = minimize(problem_nsga, algorithm_moea, termination,
+    c_moea_wst = MyCallback()
+    res_moea_wst = minimize(problem_nsga, algorithm_moea_wst, termination,
                    save_history=True,
-                   callback=c_moea,
+                   callback=c_moea_wst,
                    verbose=False)
+    """
+    ### MOEA/D
+    algorithm_moea_d = MOEAD(ref_dirs=ref_dirs,
+                             n_offsprings=BATCH_SIZE,
+                             n_neighbors=3,
+                             sampling=train_x_nsga,
+                             crossover=get_crossover("int_sbx", prob=1, eta=3.0),
+                             mutation=get_mutation("perm_inv"),
+                             prob_neighbor_mating=0.7,
+                             seed=trial+2)
+
+    c_moea_d = MyCallback()
+    res_moea_d = minimize(problem_nsga, algorithm_moea_d, termination,
+                            save_history=True,
+                            verbose=True,
+                            callback=c_moea_d,
+                            seed=trial+2)
+    
+    # MOEA/D/WST
+    algorithm_moead_wst = MOEADWST(
+        ref_dirs,
+        n_offspring=BATCH_SIZE,
+        n_neighbors=5,
+        sampling=train_x_nsga,
+        crossover=get_crossover("int_sbx", prob=1, eta=3.0),
+        mutation=get_mutation("perm_inv"),
+        prob_neighbor_mating=0.7
+    )
+    c_moead_wst = MyCallback()
+
+    res_moead_wst = minimize(problem_nsga,
+                             algorithm_moead_wst,
+                             termination,
+                             seed=trial+2,
+                             save_history=True,
+                             callback=c_moead_wst,
+                             verbose=True)
     """
     for iteration in range(1, N_BATCH):
         print(f"CICLO {iteration} in trial {trial}")
@@ -215,23 +270,15 @@ for trial in range(1, N_TRIALS + 1):
         iteration_time_qparego.append(t1_qParego - t0_qParego)
 
     hvs_qparego_all.append(hvs_qparego)
-    hvs_nsga_all.append(c_nsga2.data["HV"])
-    # hvs_moea_all.append(c_moea.data["HV"])
-    time_qparego_all.append(iteration_time_qparego)
-
-    time_error = c_nsga2.data["time"][0]
-    for i in range(0, N_BATCH):
-        c_nsga2.data["time"][i] = c_nsga2.data["time"][i] - time_error
-    time_nsga_all.append(c_nsga2.data["time"])
+    hvs_nsga2_all.append(c_nsga2.data["HV"])
+    hvs_nsga3_all.append(c_nsga3.data["HV"])
+    hvs_moea_wst_all.append(c_moea_wst.data["HV"])
+    #hvs_moead_all.append(c_moea_d.data["HV"])
+    #hvs_moead_wst_all.append(c_moead_wst.data["HV"])
 
 
-hypervolume = {"parego": hvs_qparego_all, "nsga2": hvs_nsga_all}
-time = {"parego time": time_qparego_all, "nsga time": time_nsga_all}
+hypervolume = {"parego": hvs_qparego_all, "nsga2": hvs_nsga2_all, "nsga3": hvs_nsga3_all, "moea/wst": hvs_moea_wst_all}#, "moea/d": hvs_moead_all,
+              # "moead/wst": hvs_moead_wst_all}
 out_file_hvs = open("Risultati\\hypervolume.json", "w")
-out_file_time = open("Risultati\\time.json", "w")
-out_file_parego = open("Risultati\\parego_data.json", "w")
-out_file_nsga = open("Risultati\\nsga_data.json", "w")
 json.dump(hypervolume, out_file_hvs)
-json.dump(time, out_file_time)
-json.dump(parego_data, out_file_parego)
-json.dump(c_nsga2.data["nsga data"], out_file_nsga)
+
