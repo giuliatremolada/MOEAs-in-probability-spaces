@@ -1,0 +1,1 @@
+Confronto e analisi di diversi algoritmi evolutivi multi-obiettivo e algoritmi di ottimizzazione Bayesiana. Tali metodi vengono comparati ad una nuova versione di uno di essi, ottenuta in questo lavoro introducendo la distanza di Wasserstein all'implementazione standard. Il contesto applicativo è quello dello sviluppo di un sistema di raccomandazione di film.
